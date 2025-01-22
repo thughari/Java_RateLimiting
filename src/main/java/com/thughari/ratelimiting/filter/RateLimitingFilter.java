@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.springframework.stereotype.Component;
 
@@ -24,6 +26,8 @@ public class RateLimitingFilter implements Filter {
 	
 	private static final int MAX_REQUESTS_PER_MINUTE = 5;
 	private static final long ONE_MINUTE_IN_MILLIS = 60000;
+	
+	Logger logger = Logger.getLogger(this.getClass().getName());
 
 	@Override
 	public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -39,6 +43,8 @@ public class RateLimitingFilter implements Filter {
 //		AtomicInteger requestCount = requestsPerIp.get(clientIp).getRequestCount();
 
 		RateLimitInfo rateLimitInfo = requestsPerIp.get(clientIp);
+		
+		logger.log(Level.INFO, clientIp);
 		
 		synchronized (rateLimitInfo) {
 //			int requests = requestCount.incrementAndGet();
