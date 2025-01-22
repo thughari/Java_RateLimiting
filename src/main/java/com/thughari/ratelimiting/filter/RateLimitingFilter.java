@@ -31,7 +31,8 @@ public class RateLimitingFilter implements Filter {
 		// TODO Auto-generated method stub
 		HttpServletRequest httpServletRequest = (HttpServletRequest) request;
 		HttpServletResponse httpServletResponse = (HttpServletResponse) response;
-		String clientIp = httpServletRequest.getRemoteAddr();
+		String clientIp = getClientIp(httpServletRequest);
+		// String clientIp = httpServletRequest.getRemoteAddr();
 		
 		requestsPerIp.putIfAbsent(clientIp, new RateLimitInfo(new AtomicInteger(0), System.currentTimeMillis()));
 		
@@ -55,5 +56,17 @@ public class RateLimitingFilter implements Filter {
 		}
 		chain.doFilter(request, response);
 	}
+
+	private String getClientIp(HttpServletRequest request) {
+        String forwardedFor = request.getHeader("X-Forwarded-For");
+        if (forwardedFor != null && !forwardedFor.isEmpty()) {
+            return forwardedFor.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isEmpty()) {
+            return realIp;
+        }
+        return request.getRemoteAddr();
+    }
 
 }
