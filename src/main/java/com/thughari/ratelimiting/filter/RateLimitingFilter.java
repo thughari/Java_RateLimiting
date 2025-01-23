@@ -21,12 +21,12 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @Component
 public class RateLimitingFilter implements Filter {
-	
+
 	private final Map<String, RateLimitInfo> requestsPerIp = new ConcurrentHashMap<String, RateLimitInfo>();
-	
+
 	private static final int MAX_REQUESTS_PER_MINUTE = 5;
 	private static final long ONE_MINUTE_IN_MILLIS = 60000;
-	
+
 	Logger logger = Logger.getLogger(this.getClass().getName());
 
 	@Override
@@ -35,44 +35,53 @@ public class RateLimitingFilter implements Filter {
 		// TODO Auto-generated method stub
 		HttpServletRequest httpServletRequest = (HttpServletRequest) request;
 		HttpServletResponse httpServletResponse = (HttpServletResponse) response;
-		String clientIp = getClientIp(httpServletRequest);
-		// String clientIp = httpServletRequest.getRemoteAddr();
-		
-		requestsPerIp.putIfAbsent(clientIp, new RateLimitInfo(new AtomicInteger(0), System.currentTimeMillis()));
-		
-//		AtomicInteger requestCount = requestsPerIp.get(clientIp).getRequestCount();
 
-		RateLimitInfo rateLimitInfo = requestsPerIp.get(clientIp);
+		String uri = httpServletRequest.getRequestURI();
 		
-		logger.log(Level.INFO, clientIp);
-		
-		synchronized (rateLimitInfo) {
-//			int requests = requestCount.incrementAndGet();
-			long currentTime = System.currentTimeMillis();
-			if (currentTime - rateLimitInfo.getLastRequestTime() >= ONE_MINUTE_IN_MILLIS) {
-	            rateLimitInfo.getRequestCount().set(0);
-	            rateLimitInfo.setLastRequestTime(currentTime);
-	        }
-			int requests = rateLimitInfo.getRequestCount().incrementAndGet();
-			if(requests >MAX_REQUESTS_PER_MINUTE) {
-				httpServletResponse.setStatus(429);
-				httpServletResponse.getWriter().write("Too many requests. Please try again later.");
-				return;
+		String url = httpServletRequest.getRequestURL().toString();
+		logger.log(Level.INFO, url);
+		logger.log(Level.INFO, uri);
+		if("/ratelimiting/api/login".contains(uri)) {
+			String clientIp = getClientIp(httpServletRequest);
+//			String clientIp = httpServletRequest.getRemoteAddr();
+
+			requestsPerIp.putIfAbsent(clientIp, new RateLimitInfo(new AtomicInteger(0), System.currentTimeMillis()));
+
+//			AtomicInteger requestCount = requestsPerIp.get(clientIp).getRequestCount();
+
+			RateLimitInfo rateLimitInfo = requestsPerIp.get(clientIp);
+
+			logger.log(Level.INFO, clientIp);
+
+			synchronized (rateLimitInfo) {
+//				int requests = requestCount.incrementAndGet();
+				long currentTime = System.currentTimeMillis();
+				if (currentTime - rateLimitInfo.getLastRequestTime() >= ONE_MINUTE_IN_MILLIS) {
+					rateLimitInfo.getRequestCount().set(0);
+					rateLimitInfo.setLastRequestTime(currentTime);
+				}
+				int requests = rateLimitInfo.getRequestCount().incrementAndGet();
+				if(requests >MAX_REQUESTS_PER_MINUTE) {
+					httpServletResponse.setStatus(429);
+					httpServletResponse.getWriter().write("Too many requests. Please try again later.");
+					logger.log(Level.SEVERE, "Too many requests.");
+					return;
+				}
 			}
 		}
 		chain.doFilter(request, response);
 	}
 
 	private String getClientIp(HttpServletRequest request) {
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isEmpty()) {
-            return forwardedFor.split(",")[0].trim();
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isEmpty()) {
-            return realIp;
-        }
-        return request.getRemoteAddr();
-    }
+		String forwardedFor = request.getHeader("X-Forwarded-For");
+		if (forwardedFor != null && !forwardedFor.isEmpty()) {
+			return forwardedFor.split(",")[0].trim();
+		}
+		String realIp = request.getHeader("X-Real-IP");
+		if (realIp != null && !realIp.isEmpty()) {
+			return realIp;
+		}
+		return request.getRemoteAddr();
+	}
 
 }
